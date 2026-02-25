@@ -1,0 +1,45 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZALV_TR_FORM
+*&---------------------------------------------------------------------*
+*----------------------------------------------------------------------
+* FIELD CATALOG BUILDING FOR EACH VIEW
+*----------------------------------------------------------------------
+FORM build_fieldcat_rd1.
+  CLEAR lt_fieldcat.
+  PERFORM add_field USING 'TRKORR'   'Transport Request'.
+  PERFORM add_field USING 'AS4DATE'  'Created On'.
+  PERFORM add_field USING 'DEV'      'Development'.
+ENDFORM.
+
+FORM build_fieldcat_rd2.
+  CLEAR lt_fieldcat.
+  PERFORM add_field USING 'TRKORR'     'Transport Request'.
+  PERFORM add_field USING 'AS4DATE'    'Created On'.
+  PERFORM add_field USING 'QUAL_DATE'  'Quality Date'.
+ENDFORM.
+
+FORM build_fieldcat_rd3.
+  CLEAR lt_fieldcat.
+  PERFORM add_field USING 'TRKORR'     'Transport Request'.
+  PERFORM add_field USING 'AS4DATE'    'Created On'.
+  PERFORM add_field USING 'PROD_DATE'  'Production Date'.
+ENDFORM.
+
+FORM build_fieldcat_rd4.
+  CLEAR lt_fieldcat.
+  PERFORM add_field USING 'TRKORR'     'Transport Request'.
+  PERFORM add_field USING 'AS4DATE'    'Created On'.
+  PERFORM add_field USING 'DEV'        'Development'.
+  PERFORM add_field USING 'QUAL_DATE'  'Quality Date'.
+  PERFORM add_field USING 'PROD_DATE'  'Production Date'.
+ENDFORM.
+
+*----------------------------------------------------------------------
+* Generic FORM to Add Field
+*----------------------------------------------------------------------
+FORM add_field USING p_fieldname p_seltext.
+  CLEAR ls_fieldcat.
+  ls_fieldcat-fieldname = p_fieldname.
+  ls_fieldcat-seltext_m = p_seltext.
+  APPEND ls_fieldcat TO lt_fieldcat.
+ENDFORM.

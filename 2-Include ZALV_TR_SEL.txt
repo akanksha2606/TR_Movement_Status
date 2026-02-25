@@ -1,0 +1,13 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZALV_TR_SEL
+*&---------------------------------------------------------------------*
+*----------------------------------------------------------------------
+* Selection Screen
+*----------------------------------------------------------------------
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.
+SELECT-OPTIONS: s_date FOR sy-datum.
+PARAMETERS: rd1 RADIOBUTTON GROUP grp1,
+            rd2 RADIOBUTTON GROUP grp1,
+            rd3 RADIOBUTTON GROUP grp1,
+            rd4 RADIOBUTTON GROUP grp1.
+SELECTION-SCREEN END OF BLOCK b1.

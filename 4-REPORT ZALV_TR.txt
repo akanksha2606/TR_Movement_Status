@@ -1,0 +1,171 @@
+REPORT ZALV_TR.
+
+include ZALV_TR_TOP.
+include ZALV_TR_SEL.
+include ZALV_TR_FORM.
+
+
+*----------------------------------------------------------------------
+* At Selection-Screen
+*----------------------------------------------------------------------
+AT SELECTION-SCREEN.
+  IF s_date[] IS INITIAL.
+    MESSAGE 'Please select a date range before executing.' TYPE 'E'.
+  ENDIF.
+
+*----------------------------------------------------------------------
+* Start-of-Selection
+*----------------------------------------------------------------------
+START-OF-SELECTION.
+
+  CALL FUNCTION 'CUSTOM_FM'
+    DESTINATION 'DESTINATION_SYSTEM'
+    EXPORTING
+      iv_date_from = s_date-low
+      iv_date_to   = s_date-high
+    IMPORTING
+      et_tr_info   = lt_tr_info
+      et_cofile    = lt_cofile.
+
+  CLEAR lt_append.
+
+  IF rd1 = 'X'.
+    LOOP AT lt_tr_info INTO ls_tr_info.
+      IF ls_tr_info-trstatus = 'D'.
+        ls_append-trkorr  = ls_tr_info-trkorr.
+        ls_append-as4date = ls_tr_info-as4date.
+        ls_append-dev     = ls_tr_info-dev.
+        APPEND ls_append TO lt_append.
+      ENDIF.
+    ENDLOOP.
+    PERFORM build_fieldcat_rd1.
+
+  ELSEIF rd2 = 'X'.
+    LOOP AT lt_tr_info INTO ls_tr_info.
+      IF ls_tr_info-systemid = 'PUQ'.
+        READ TABLE lt_tr_info WITH KEY trkorr = ls_tr_info-trkorr
+                                      systemid = 'PUP'
+                              TRANSPORTING NO FIELDS.
+        IF sy-subrc = 0.
+          CONTINUE.
+        ENDIF.
+        CLEAR ls_append.
+        ls_append-trkorr    = ls_tr_info-trkorr.
+        ls_append-as4date   = ls_tr_info-as4date.
+        ls_append-qual_date = ls_tr_info-qua_date.
+        APPEND ls_append TO lt_append.
+      ENDIF.
+    ENDLOOP.
+    PERFORM build_fieldcat_rd2.
+
+  ELSEIF rd3 = 'X'.
+    LOOP AT lt_tr_info INTO ls_tr_info.
+      IF ls_tr_info-systemid = 'PUP'.
+        ls_append-trkorr    = ls_tr_info-trkorr.
+        ls_append-as4date   = ls_tr_info-as4date.
+        ls_append-prod_date = ls_tr_info-prod_date.
+        READ TABLE lt_append WITH KEY trkorr = ls_append-trkorr TRANSPORTING NO FIELDS.
+        IF sy-subrc <> 0.
+          APPEND ls_append TO lt_append.
+        ENDIF.
+      ENDIF.
+    ENDLOOP.
+    PERFORM build_fieldcat_rd3.
+
+  ELSEIF rd4 = 'X'.
+    LOOP AT lt_tr_info INTO ls_tr_info.
+      READ TABLE lt_append INTO ls_append WITH KEY trkorr = ls_tr_info-trkorr.
+      IF sy-subrc <> 0.
+        CLEAR ls_append.
+        ls_append-trkorr  = ls_tr_info-trkorr.
+        ls_append-as4date = ls_tr_info-as4date.
+        APPEND ls_append TO lt_append.
+      ENDIF.
+
+      LOOP AT lt_append INTO ls_append WHERE trkorr = ls_tr_info-trkorr.
+        CASE ls_tr_info-systemid.
+          WHEN 'PUD'.
+            ls_append-dev_date = ls_tr_info-dev_date.
+          WHEN 'PUQ'.
+            ls_append-qual_date = ls_tr_info-qua_date.
+          WHEN 'PUP'.
+            ls_append-prod_date = ls_tr_info-prod_date.
+        ENDCASE.
+        IF ls_append-qual_date IS INITIAL AND ls_append-prod_date IS INITIAL.
+          ls_append-dev = 'X'.
+        ELSE.
+          ls_append-dev = ' '.
+        ENDIF.
+        MODIFY lt_append FROM ls_append.
+        EXIT.
+      ENDLOOP.
+    ENDLOOP.
+    PERFORM build_fieldcat_rd4.
+  ENDIF.
+
+*----------------------------------------------------------------------
+* ALV Events
+*----------------------------------------------------------------------
+  gs_event-name = 'USER_COMMAND'.
+  gs_event-form = 'HANDLE_USER_COMMAND'.
+  APPEND gs_event TO gt_events.
+
+*----------------------------------------------------------------------
+* Display Main ALV
+*----------------------------------------------------------------------
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program = sy-repid
+      it_fieldcat        = lt_fieldcat
+      it_events          = gt_events
+    TABLES
+      t_outtab           = lt_append
+    EXCEPTIONS
+      program_error      = 1
+      OTHERS             = 2.
+
+*----------------------------------------------------------------------
+* FORM: USER_COMMAND - Handles Double-click
+*----------------------------------------------------------------------
+FORM handle_user_command USING r_ucomm     LIKE sy-ucomm
+                               rs_selfield TYPE slis_selfield.
+
+  DATA: lv_trkorr TYPE trkorr.
+
+  IF r_ucomm = '&IC1'.  " Double-click
+    lv_trkorr = rs_selfield-value.
+
+    CALL FUNCTION 'ZRFC_GET_E071_DETAILS'
+      DESTINATION 'DESTINATION_SYSTEM'
+      EXPORTING
+        iv_trkorr = lv_trkorr
+      IMPORTING
+        et_e071   = lt_e071.
+
+    " Field catalog for detail ALV
+    CLEAR lt_fieldcat.
+    DEFINE add_field.
+      CLEAR ls_fieldcat.
+      ls_fieldcat-fieldname = &1.
+      ls_fieldcat-seltext_m = &2.
+      APPEND ls_fieldcat TO lt_fieldcat.
+    END-OF-DEFINITION.
+
+    add_field 'TRKORR'    'Transport Request'.
+    add_field 'PGMID'     'Program ID'.
+    add_field 'OBJECT'    'Object'.
+    add_field 'OBJ_NAME'  'Object Name'.
+    add_field 'OBJFUNC'   'Object Function'.
+    add_field 'LOCKFLAG'  'Lock Flag'.
+
+    CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+      EXPORTING
+        i_callback_program = sy-repid
+        it_fieldcat        = lt_fieldcat
+      TABLES
+        t_outtab           = lt_e071
+      EXCEPTIONS
+        program_error      = 1
+        OTHERS             = 2.
+  ENDIF.
+ENDFORM.

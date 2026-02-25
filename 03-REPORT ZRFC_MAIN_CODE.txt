@@ -1,0 +1,69 @@
+REPORT ZRFC_MAIN_CODE.
+
+include ZRFC_MAIN_CODE_TOP.
+include ZRFC_MAIN_CODE_SEL.
+
+
+
+
+*-------------------------------------------------------------*
+* Main Logic
+*-------------------------------------------------------------*
+START-OF-SELECTION.
+
+  " Convert function name to uppercase (standard practice)
+*  TRANSLATE p_funame TO UPPER CASE.
+
+
+
+  " Step 1: Ping the RFC destination
+  CALL FUNCTION 'RFC_PING'
+    DESTINATION p_dest
+    EXCEPTIONS
+      communication_failure = 1
+      system_failure        = 2
+      OTHERS                = 3.
+
+  IF sy-subrc <> 0.
+    CASE sy-subrc.
+      WHEN 1.
+        lv_result = |❌ Communication failure with destination { p_dest }.|.
+      WHEN 2.
+        lv_result = |❌ System failure in destination { p_dest }.|.
+      WHEN OTHERS.
+        lv_result = |❌ Unknown error while pinging { p_dest }.|.
+    ENDCASE.
+    WRITE: / lv_result.
+    EXIT.
+  ENDIF.
+
+  " Step 2: Try calling the function module (without parameters)
+  TRY.
+      CALL FUNCTION 'ZRFC_FM_TR'   "p_funame
+        DESTINATION p_dest
+        EXCEPTIONS
+          system_failure             = 1
+          communication_failure      = 2
+          call_function_not_found    = 3
+          OTHERS                     = 4.
+
+      CASE sy-subrc.
+        WHEN 0.
+*          lv_result = |✅ Function module { p_funame } exists and is callable in destination { p_dest }.|.
+          SUBMIT ZRFC_TR_STATUS_DEMO.
+        WHEN 1.
+          lv_result = |❌ System failure occurred while calling { p_funame } in { p_dest }.|.
+        WHEN 2.
+          lv_result = |❌ Communication failure while calling { p_funame } in { p_dest }.|.
+        WHEN 3.
+          lv_result = |❌ Function module { p_funame } does NOT exist in destination { p_dest }.|.
+        WHEN OTHERS.
+          lv_result = |⚠️ Unknown error (sy-subrc = { sy-subrc }) while calling { p_funame } in { p_dest }.|.
+      ENDCASE.
+
+    CATCH cx_root INTO DATA(lx).
+      lv_result = |# Exception occurred: { lx->get_text( ) }|.
+  ENDTRY.
+
+  " Display result
+  WRITE: / lv_result.
